@@ -1,0 +1,665 @@
+CREATE OR REPLACE PROCEDURE  INFORMES.SP_VALIDAR_DATOS_TARIFAS
+	IS
+
+  EMESG  VARCHAR2(200);
+  ECODE  NUMBER;
+  V_VALOR_CAMPO VARCHAR2(4000);
+  V_VALOR_CAMPO_VALIDACION VARCHAR2(4000);
+  V_LONGITUD_CAMPO VARCHAR2(4000);
+  V_FALLA VARCHAR2(4000);
+  V_DESCRIPCION VARCHAR2(4000);
+  V_DESCRIPCION_VALIDACION VARCHAR2(4000);
+  V_FALLA_DEF NUMBER;
+  V_COLUMNAS_HAB VARCHAR2(300);
+  V_MAX_COL_HABILITADA NUMBER;
+  CADENA VARCHAR2(4000);
+  SUB_CADENA VARCHAR2(10);
+  V_VALIDACION_CAMPO VARCHAR2(4000);
+  CONTIENE NUMBER;
+  registro NUMBER;
+
+	CURSOR C_DATOS IS
+    SELECT ID AS C_ID,
+      Trim (cuenta) AS C_CUENTA,
+      TRIM(PRODUCTO) AS C_PRODUCTO ,
+      TRIM(ENTIDAD) AS C_ENTIDAD,
+      TRIM(TIPO_ENTIDAD)AS C_TIPO_ENTIDAD,
+      TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS')AS FECHA_REPORTE,
+      'BANCO AVVILLAS'AS C_NOMBRE_ENTIDAD,
+      TRIM(CODIGO_CREDITO)AS COD_CREDITO,
+      TRIM(NOMBRE_COMERCIAL) AS NOM_COMERCIAL,
+      TRIM(TIPO_PRODUCTO) AS C_TIPO_PRODUCTO,
+      TRIM(APERTURA_DIGITAL) AS C_APERTURA_DIG,
+      TRIM(CARACTERISTICA_CREDITO) AS C_CARACTERISTICA,
+      TRIM(NUMERO_CLIENTES) AS C_NUM_CLIENTES,
+      TRIM(FRANQUICIA) AS C_FRANQUICIA,
+      TRIM(CUOTA_MANEJO) AS C_CUOTA_MANEJO,
+      TRIM(GRUPO_POBLACIONAL) AS C_GRUPO_POBL,
+      TRIM(OBSERVACIONES_CUOTA_MANEJO) AS C_OBSERV_CUOTA,
+      TRIM(CUOTA_MANEJO_MAX) AS C_CUOTA_MAX,
+      TRIM(CUPO)AS C_CUPO,
+      TRIM(INGRESO) AS C_INGRESO,
+      TRIM(CUENTA1)AS C_CUENTA1,
+      TRIM(CUENTA2)AS C_CUENTA2,
+      TRIM(CUENTA3) AS C_CUENTA3,
+      TRIM(TARJETA1)AS C_TARJETA1,
+      TRIM(TARJETA2)AS C_TARJETA2,
+      TRIM(TARJETA3)AS C_TARJETA3,
+      TRIM(SERVICIO1)AS C_SERVICIO1,
+      TRIM(SERVICIO2)AS C_SERVICIO2,
+      TRIM(SERVICIO3)AS C_SERVICIO3,
+      Trim(SUBCUENTA)AS C_SUBCUENTA,
+      TRIM(OPERACION_SERVICIO)AS C_OPERACION,
+      TRIM(CANAL)AS C_CANAL ,
+      TRIM(NUM_OPER_SERV_CUOTA_MANEJO) AS C_NUM_OPER_SERV_CUOTA_MANEJO,
+      TRIM(COSTO)AS C_COSTO,
+      TRIM(COSTO_FIJO) AS C_COSTO_FIJO,
+      TRIM(COSTO_FIJO_MAX) AS C_COSTO_FIJO_MAX,
+      TRIM(COSTO_PROPORCIONAL)AS C_COSTO_PROPORCIONAL,
+      TRIM(COSTO_PROPORCIONAL_MAX)AS C_COSTO_PROPORCIONAL_MAX,
+      TRIM(TASA) AS C_TASA,
+      TRIM(TASA_MAX) AS C_TASA_MAX,
+      TRIM(CODIGO_ASEGURADORA) AS C_COD_ASEGURA,
+      TRIM(TIPO_ASEGURADORA) AS C_TIPO_ASEGURA,
+      TRIM(OBSERVACIONES)AS C_OBSERVACIONES,
+      To_Date(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')AS C_FECHA_CREACION
+			FROM INFORMES.TB_DATOS_TARIFAS;
+
+
+
+
+  CURSOR C_CAMPOS (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    ORDER BY SECUENCIA;
+
+  CURSOR C_CAMPOS_90 (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    AND NATURALEZA !='CONTROL'
+    AND CAMPO != 'OBSERVACIONES'
+    ORDER BY SECUENCIA;
+
+
+  CURSOR C_CAMPOS_90OP (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    AND CAMPO != 'OBSERVACIONES'
+    AND CAMPO != 'OPERACION_SERVICIO'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    ORDER BY SECUENCIA;
+
+
+  CURSOR C_CAMPOS_90C (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    AND CAMPO != 'OBSERVACIONES'
+    AND CAMPO != 'CANAL'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    ORDER BY SECUENCIA;
+
+
+  CURSOR C_CAMPOS_90OPC (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= 'CREDITO'--TIPO_PRODUCTO
+    AND CAMPO != 'OBSERVACIONES'
+    AND CAMPO != 'CANAL'
+    AND CAMPO != 'OPERACION_SERVICIO'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    ORDER BY SECUENCIA;
+
+  CURSOR C_CAMPOS_90OP_C (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    AND CAMPO != 'OBSERVACIONES'
+    AND CAMPO != 'CARACTERISTICA_CREDITO'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    ORDER BY SECUENCIA;
+
+
+  CURSOR C_CAMPOS_90C_C (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    AND CAMPO != 'OBSERVACIONES'
+    AND CAMPO != 'CANAL'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    ORDER BY SECUENCIA;
+
+
+  CURSOR C_CAMPOS_90OPC_C (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO= TIPO_PRODUCTO
+    AND CAMPO != 'OBSERVACIONES'
+    AND CAMPO != 'CANAL'
+    AND CAMPO != 'CARACTERISTICA_CREDITO'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    ORDER BY SECUENCIA;
+
+
+  CURSOR  C_CAMPOS_VALIDACION (TIPO_PRODUCTO VARCHAR2) IS
+    SELECT SECUENCIA ,
+    CAMPO		  ,
+    PRODUCTO  ,
+    LONGITUD	    ,
+    OBLIGATORIO,
+    TIPO_DATO,
+    NATURALEZA,
+    COLUMNA
+    FROM INFORMES.TB_CAMPOS_TARIFAS
+    WHERE PRODUCTO=TIPO_PRODUCTO
+    AND CAMPO <>'OPERACION_SERVICIO'
+    AND NATURALEZA='UNIDAD_CAPTURA'
+    --AND COLUMNA NOT IN(COLUMNAS)
+    ORDER BY SECUENCIA;
+
+
+                              
+	V_COUNT NUMBER;
+BEGIN
+    registro:=0;
+    EXECUTE IMMEDIATE('TRUNCATE TABLE INFORMES.TB_FALLA_TARIFAS');
+		BEGIN
+
+
+
+	--	BEGIN
+		    FOR REG IN C_DATOS LOOP    -- ciclo para validar cada dato
+            V_FALLA:='';
+            V_COLUMNAS_HAB:='';
+
+            ---- OBSERVACION CAMPO 90  DESACTIVACION DE PRODUCTO TODOS LOS CAMPOS A EXCEPCION DE LA OBSERVACION DEBEN IR VACIOS
+            IF (REG.C_OBSERVACIONES='90' AND REG.C_CANAL IS NULL AND REG.C_OPERACION IS NULL AND  (REG.C_PRODUCTO ='DEPOSITO' OR REG.C_PRODUCTO ='TARJETA_CREDITO' )) THEN
+              FOR REG_C90 IN C_CAMPOS_90(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE PRODUCTO'||' ,Cuenta: '||REG.C_CUENTA||' Subcuenta '||reg.C_subcuenta,REG_C90.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+               /* OBSERVACION CAMPO 90  DESACTIVACION DE UNA OPERACI?N O SERVICIO
+               SOLO LOS CAMPOS DE UNIDAD DE CAPTURA, OPERACION O SERVICIO Y OBSERVACION DEBEN ESTAR DILIGENCIADOS EL RESTO DEBEN ESTAR VACIOS
+               */
+            IF (REG.C_OBSERVACIONES='90'  AND REG.C_OPERACION IS NOT NULL AND REG.C_CANAL IS  NULL  AND  (REG.C_PRODUCTO ='DEPOSITO' OR REG.C_PRODUCTO ='TARJETA_CREDITO' )) THEN
+              FOR REG_C90OP IN C_CAMPOS_90OP(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90OP.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90OP.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE "OPERACION O SERVICIO"'||' ,Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C90OP.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+
+            IF (REG.C_OBSERVACIONES='90'  AND REG.C_CARACTERISTICA IS NOT NULL AND REG.C_CANAL IS  NULL  AND  (REG.C_PRODUCTO ='CREDITO' )) THEN
+              FOR REG_C90OP_C IN C_CAMPOS_90OP_C(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90OP_C.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90OP_C.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE "CARACTERISTICA CREDITO"'||' ,Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C90OP_C.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+
+
+                /* OBSERVACION CAMPO 90  DESACTIVACION DE UN CANAL
+               SOLO LOS CAMPOS DE UNIDAD DE CAPTURA, CANAL Y OBSERVACION DEBEN ESTAR DILIGENCIADOS EL RESTO DEBEN ESTAR VACIOS
+               */
+            IF (REG.C_OBSERVACIONES='90'  AND REG.C_CANAL IS NOT NULL AND REG.C_OPERACION IS NULL AND  (REG.C_PRODUCTO ='DEPOSITO' OR REG.C_PRODUCTO ='TARJETA_CREDITO' ) ) THEN
+              FOR REG_C90C IN C_CAMPOS_90C(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90C.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90C.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE "CANAL"'||' ,Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C90C.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+
+            IF (REG.C_OBSERVACIONES='90'  AND REG.C_CANAL IS NOT NULL AND REG.C_CARACTERISTICA IS NULL AND  (REG.C_PRODUCTO ='CREDITO'  ) ) THEN
+              FOR REG_C90C IN C_CAMPOS_90C_C(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90C.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90C.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE "CANAL"'||' ,Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C90C.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+
+                 /* OBSERVACION CAMPO 90  DESACTIVACION DE UNA OPERACI?N O SERVICIO POR CANAL
+               SOLO LOS CAMPOS DE UNIDAD DE CAPTURA,"OPERACI?N O SERVICIO", "CANAL" Y "OBSERVACION" DEBEN ESTAR DILIGENCIADOS EL RESTO DEBEN ESTAR VACIOS
+               */
+            IF (REG.C_OBSERVACIONES='90'  AND REG.C_CANAL IS NOT NULL AND REG.C_CARACTERISTICA IS NOT NULL AND  (REG.C_PRODUCTO ='DEPOSITO' OR REG.C_PRODUCTO ='TARJETA_CREDITO' )) THEN
+              FOR REG_C90OPC IN C_CAMPOS_90OPC(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90OPC.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90OPC.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE "UNA OPERACION O SERVICIO POR CANAL"'||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C90OPC.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+
+            IF (REG.C_OBSERVACIONES='90'  AND REG.C_CANAL IS NOT NULL AND REG.C_CARACTERISTICA IS NOT NULL AND  ( REG.C_PRODUCTO ='CREDITO' ) ) THEN
+              FOR REG_C90OPC IN C_CAMPOS_90OPC_C(REG.C_PRODUCTO) LOOP
+                EXECUTE IMMEDIATE('SELECT '||REG_C90OPC.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+                IF (V_VALOR_CAMPO IS NOT NULL) THEN
+                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    'EL CAMPO '||REG_C90OPC.CAMPO||' DEBE ESTAR VACIO DEBIDO A LA OBSERVACION CON CODIGO 90, DESACTIVACION DE "CARACTERISTICA CREDITO POR CANAL"'||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C90OPC.CAMPO,REG.C_ID) ;
+                END IF;
+              END LOOP;
+
+
+            END IF;
+            FOR REG_C IN C_CAMPOS(REG.C_PRODUCTO) LOOP
+              EXECUTE IMMEDIATE('SELECT '||REG_C.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+              EXECUTE IMMEDIATE('SELECT Length('||REG_C.CAMPO||') FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_LONGITUD_CAMPO;
+              /*IF (REG_C.TIPO_DATO='NUMERICO')THEN
+                         IF (INFORMES.FC_IS_NUMBER(V_VALOR_CAMPO) != 'S') THEN
+                                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                  'para el producto '||REG.C_PRODUCTO||' el valor del campo '||REG_C.CAMPO||' registro no numerico  ',REG_C.CAMPO,REG.C_ID) ;
+                                  COMMIT;
+
+                         END IF;
+              END IF;*/
+              IF (REG_C.CAMPO='OPERACION_SERVICIO')THEN
+                  BEGIN
+                    EXECUTE IMMEDIATE('SELECT COL_HABILITADAS FROM INFORMES.TB_VALIDACIONES WHERE CAMPO='''||REG_C.CAMPO||''' AND PRODUCTO='''||REG_C.PRODUCTO||'''AND CODIGO ='||V_VALOR_CAMPO) INTO V_COLUMNAS_HAB;
+                  EXCEPTION
+                    WHEN OTHERS THEN
+                    V_COLUMNAS_HAB:=NULL;
+                  END;
+                    --DBMS_OUTPUT.PUT_LINE('COLUMNAS '||V_COLUMNAS_HAB);
+              --DBMS_OUTPUT.PUT_LINE('ID '||REG.C_ID||' NOMBRE CAMPO: '||REG_C.CAMPO||' VALOR :'||V_VALOR_CAMPO);
+                  CADENA:=  V_COLUMNAS_HAB;
+                  IF(V_COLUMNAS_HAB IS NOT NULL )THEN
+                    --FOR i IN 1..REGEXP_COUNT(cadena, ',') + 1 LOOP
+                       -- SUB_CADENA := REGEXP_SUBSTR(cadena, '[^,]+', 1, i);
+                        FOR REG_V IN C_CAMPOS_VALIDACION(REG_C.PRODUCTO) LOOP
+                            V_VALIDACION_CAMPO:='';
+
+                            EXECUTE IMMEDIATE('SELECT '||REG_V.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO_VALIDACION;
+                            SELECT INSTR(CADENA,To_Char(REG_V.COLUMNA))
+                            INTO  CONTIENE
+                            FROM DUAL;
+
+                            --DBMS_OUTPUT.PUT_LINE('CAMPO '|| REG_V.CAMPO||' VALOR '||V_VALOR_CAMPO_VALIDACION);
+                           IF (CONTIENE>0 ) THEN
+                            --  DBMS_OUTPUT.PUT_LINE('ENTRA AL IF CONTAINS COLUMNAS'||REG_V.COLUMNA );
+                              V_VALIDACION_CAMPO:=INFORMES.FC_VALIDAR_CAMPOS(REG.C_PRODUCTO,REG_V.CAMPO,V_VALOR_CAMPO_VALIDACION);
+                              IF (V_VALIDACION_CAMPO IS NOT NULL)THEN
+                                V_DESCRIPCION_VALIDACION:='para el producto '||REG.C_PRODUCTO||' el campo  '||REG_V.CAMPO||' debe estar diligenciado debido a la condicion del campo  '||REG_C.CAMPO||', valor del campo '||V_VALOR_CAMPO||', columnas habilitadas: '||V_COLUMNAS_HAB||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA;
+                                INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                    V_DESCRIPCION_VALIDACION,REG_V.CAMPO,REG.C_ID) ;
+                                    COMMIT;
+                              END IF;
+
+
+                           ELSE
+                             IF (V_VALOR_CAMPO_VALIDACION IS NOT NULL) THEN
+                              --  DBMS_OUTPUT.PUT_LINE('ENTRA AL ELSE CONTAINS COLUMNAS'||REG_V.COLUMNA );
+                                V_VALIDACION_CAMPO:=INFORMES.FC_VALIDAR_CAMPOS(REG.C_PRODUCTO,REG_V.CAMPO,V_VALOR_CAMPO_VALIDACION);
+                                --DBMS_OUTPUT.PUT_LINE('V_VALIDACION_CAMPO 1'||V_VALIDACION_CAMPO);
+                                IF (V_VALIDACION_CAMPO IS NULL)THEN
+
+                                 -- DBMS_OUTPUT.PUT_LINE('VALIDACION CAMPO SEGUN '||REG_C.CAMPO||' COLUMNAS '||V_COLUMNAS_HAB|| ' CAMPO '||REG_V.CAMPO||' FILA '||REG.C_ID);
+                                  V_DESCRIPCION_VALIDACION:='para el producto '||REG.C_PRODUCTO||' el campo  '||REG_V.CAMPO||' valor del campo  '||V_VALOR_CAMPO_VALIDACION||' NO debe estar diligenciado debido a la condicion del campo  '||REG_C.CAMPO||', columnas habilitadas: '||V_COLUMNAS_HAB||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA;
+                                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                      V_DESCRIPCION_VALIDACION,REG_V.CAMPO,REG.C_ID) ;
+                                      COMMIT;
+                                END IF;
+
+
+                             END IF;
+                           END IF;
+                        END LOOP;
+                    --END LOOP;
+                  END IF;
+              END IF;
+              IF (REG_C.OBLIGATORIO =1) THEN --CAMPO ES OBLIGATORIO
+                IF (V_VALOR_CAMPO IS NOT NULL)THEN
+                      IF (REG_C.TIPO_DATO='NUMERICO')THEN
+                         IF (INFORMES.FC_IS_NUMBER(V_VALOR_CAMPO) != 'S') THEN
+                                  INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                                  'para el producto '||REG.C_PRODUCTO||' el valor del campo '||REG_C.CAMPO||' registro no numerico  ',REG_C.CAMPO,REG.C_ID) ;
+                                  COMMIT;
+
+                         END IF;
+                      END IF;
+                      V_DESCRIPCION:=INFORMES.FC_VALIDAR_CAMPOS(REG.C_PRODUCTO,REG_C.CAMPO,V_VALOR_CAMPO);
+                      V_FALLA:=V_FALLA||INFORMES.FC_VALIDAR_CAMPOS(REG.C_PRODUCTO,REG_C.CAMPO,V_VALOR_CAMPO);
+                      IF(V_LONGITUD_CAMPO > REG_C.LONGITUD)THEN
+                        INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                              'la longitud del campo '||REG_C.CAMPO||' supera la cantidad de caracteres, max: '||REG_C.LONGITUD||', valor: '||V_VALOR_CAMPO,REG_C.CAMPO,REG.C_ID) ;
+                              COMMIT;
+                      END IF;
+                      IF (V_FALLA IS NOT NULL) THEN
+                        BEGIN
+                              INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                              V_DESCRIPCION,REG_C.CAMPO,REG.C_ID) ;
+                              COMMIT;
+                          END;
+                      END IF;
+                ELSE
+
+                     INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                      'El campo '||REG_C.CAMPO||' es obligatorio por favor diligenciarlo para el producto  '||REG.C_PRODUCTO||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,REG_C.CAMPO,REG.C_ID) ;
+                     COMMIT;
+
+                END IF;
+              ELSIF(V_VALOR_CAMPO IS NOT NULL)THEN   --CAMPO NO ES OBLIGATORIO
+                  IF (REG_C.TIPO_DATO='NUMERICO')THEN
+                      IF (INFORMES.FC_IS_NUMBER(V_VALOR_CAMPO) != 'S') THEN
+                            INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                             'para el producto '||REG.C_PRODUCTO||' el valor del campo '||REG_C.CAMPO||' registro no numerico  ',REG_C.CAMPO,REG.C_ID) ;
+                            COMMIT;
+                      END IF;
+                  END IF;
+
+                  V_DESCRIPCION:=INFORMES.FC_VALIDAR_CAMPOS(REG.C_PRODUCTO,REG_C.CAMPO,V_VALOR_CAMPO);
+                  V_FALLA:=V_FALLA||INFORMES.FC_VALIDAR_CAMPOS(REG.C_PRODUCTO,REG_C.CAMPO,V_VALOR_CAMPO);
+                  IF(V_LONGITUD_CAMPO > REG_C.LONGITUD)THEN
+                    INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                          'la longitud del campo '||REG_C.CAMPO||' supera la cantidad de caracteres, max: '||REG_C.LONGITUD||', valor: '||V_VALOR_CAMPO ,REG_C.CAMPO,REG.C_ID) ;
+                          COMMIT;
+                  END IF;
+                  IF (V_FALLA IS NOT NULL) THEN
+                    BEGIN
+                          INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                          V_DESCRIPCION,REG_C.CAMPO,REG.C_ID) ;
+                          COMMIT;
+                      END;
+
+                  END IF;
+
+              END IF;
+
+            END LOOP;
+           /* FOR REG_N IN  C_CAMPOS_N(REG.C_PRODUCTO) LOOP
+              EXECUTE IMMEDIATE('SELECT '||REG_N.CAMPO||' FROM INFORMES.TB_DATOS_TARIFAS WHERE ID='||REG.C_ID) INTO V_VALOR_CAMPO;
+
+                    IF (INFORMES.FC_IS_NUMBER(V_VALOR_CAMPO) != 'S') THEN
+                      BEGIN
+                            INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                            'para el producto '||REG.C_PRODUCTO||' el valor del campo '||REG_N.CAMPO||' registro no numerico  ',REG_N.CAMPO,REG.C_ID) ;
+                            COMMIT;
+                        END;
+
+
+                    END IF;
+
+            END LOOP; */
+
+            --VALIDACIONES CONDICIONADAS
+            --1. tipo_producto  Si el codigo es 4, solo estan habilitados los campos del encabezado tipo, codigo, nombre comercial, tipo de producto de deposito y cuota de manejo; no estara habilitada la unidad de captura.
+            --Si el codigo es 5,6 o 7, solo estaran habilitados los campos del encabezado tipo, codigo, tipo de producto de deposito, cuota de manejo y no estara habilitada la columna 3 de la UC.
+            IF (REG.C_PRODUCTO = 'DEPOSITO') THEN
+                IF REG.C_TIPO_PRODUCTO = '4'
+                  AND (NVL(REG.C_OPERACION,-10) != -10
+                  OR   NVL(REG.C_CANAL,-10) != -10
+                  OR   NVL(REG.C_NUM_OPER_SERV_CUOTA_MANEJO,-10) != -10
+                  OR   NVL(REG.C_COSTO_FIJO,-10)  != -10
+                  OR   NVL(REG.C_COSTO_PROPORCIONAL,-10) != -10
+                  OR   NVL(REG.C_GRUPO_POBL,-10)  != -10
+                  OR   NVL(REG.C_OBSERV_CUOTA,-10) != -10
+                  OR   NVL(REG.C_COSTO_PROPORCIONAL,-10) != -10
+                  OR   NVL(REG.C_INGRESO,-10) != -10
+                  OR   NVL(REG.C_CUENTA1,-10) != -10
+                  OR   NVL(REG.C_CUENTA2,-10) != -10
+                  OR   NVL(REG.C_CUENTA3,-10) != -10
+                  OR   NVL(REG.C_TARJETA1,-10) != -10
+                  OR   NVL(REG.C_TARJETA2,-10) != -10
+                  OR   NVL(REG.C_TARJETA3,-10) != -10) THEN
+                    INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                    'Para tipo producto 4, NO debe tener diligenciado OPERACION_SERVICIO, CANAL, NUM_OPER_SERV_CUOTA_MANEJO, COSTO_FIJO,COSTO_PROPORCIONAL'||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,'TIPO_PRODUCTO',REG.C_ID);
+                    COMMIT;
+                END IF;
+
+                IF REG.C_TIPO_PRODUCTO = '5'
+                  OR REG.C_TIPO_PRODUCTO = '6'
+                  OR REG.C_TIPO_PRODUCTO = '7' THEN
+                    IF  (NVL(REG.C_TIPO_ENTIDAD,-10) = -10
+                      OR   NVL(REG.C_ENTIDAD,-10) = -10
+                      OR   NVL(REG.NOM_COMERCIAL,-10) = -10
+                      OR   NVL(REG.C_CUOTA_MANEJO,-10) = -10
+                      OR   NVL(REG.C_OPERACION,-10) = -10
+                      OR   NVL(REG.C_CANAL,-10) = -10
+                      OR   NVL(REG.C_COSTO_FIJO,-10) = -10
+                      OR   NVL(REG.C_COSTO_PROPORCIONAL,-10) = -10
+                      OR   NVL(REG.C_OBSERVACIONES,-10) = -10) THEN
+                        INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                        'Para tipo producto '|| REG.C_TIPO_PRODUCTO ||' debe tener diligenciado tipo_entidad, codigo_entidad, cuota, nombre comercial,operacion o servicio,canal,costo fijo,'||
+                        'costo proporcional Y OBSERVACIONES '||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,'TIPO_PRODUCTO',REG.C_ID);
+                        COMMIT;
+                    END IF;
+                    IF (NVL(REG.C_NUM_OPER_SERV_CUOTA_MANEJO,-10) != -10
+                          OR   NVL(REG.C_GRUPO_POBL,-10)  != -10
+                          OR   NVL(REG.C_OBSERV_CUOTA,-10) != -10
+                          OR   NVL(REG.C_INGRESO,-10) != -10
+                          OR   NVL(REG.C_CUENTA1,-10) != -10
+                          OR   NVL(REG.C_CUENTA2,-10) != -10
+                          OR   NVL(REG.C_CUENTA3,-10) != -10
+                          OR   NVL(REG.C_TARJETA1,-10) != -10
+                          OR   NVL(REG.C_TARJETA2,-10) != -10
+                          OR   NVL(REG.C_TARJETA3,-10) != -10
+                          OR   NVL(REG.C_APERTURA_DIG,-10) != -10
+                          OR   NVL(REG.C_NUM_CLIENTES,-10) != -10
+                          OR   NVL(REG.C_OBSERV_CUOTA,-10) != -10)THEN
+                        INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                        'Para tipo producto '|| REG.C_TIPO_PRODUCTO ||' el campo  APERTURA_DIGITAL,NUMERO_CLIENTES,GRUPO_POBLACIONAL,OBSERVACIONES_CUOTA_MANEJO,INGRESO,CUENTA1,CUENTA2,CUENTA3'||
+                         'TARJETA1,TARJETA2,TARJETA3,NUM_OPER_SERV_CUOTA_MANEJO no debe estar diligenciado '||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,'TIPO_PRODUCTO',REG.C_ID);
+                        COMMIT;
+                    END IF;
+                END IF;
+            END IF;
+
+            --2. Registre el valor de la cuota de manejo  Si el codigo del campo "obs_cuota_manejo" es 2 (no tiene cuota), se debe reportar "0".
+            IF (REG.C_PRODUCTO = 'TARJETA_CREDITO' OR REG.C_PRODUCTO = 'DEPOSITO')
+            AND REG.C_OBSERV_CUOTA = '2'
+            AND REG.C_CUOTA_MANEJO != '0' THEN
+                INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                'Observaciones cuota de manejo valor 2, cuota de manejo debe diligenciarse con cero 0 '||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,'CUOTA_MANEJO',REG.C_ID);
+                COMMIT;
+            END IF;
+
+            /*--3. Si el numero de operaciones o servicios es ilimitado se debe reportar el numero ?-1? y dejar en blanco las columnas 4 y 5. Si la operacion o servicio por canal reportado no esta incluido en la cuota de manejo se debe reportar el numero cero (0).
+            IF (REG.C_PRODUCTO = 'DEPOSITO')
+            AND REG.C_NUM_OPER_SERV_CUOTA_MANEJO = '-1'
+            AND Length(REG.C_COSTO_FIJO) > 0
+            AND Length(REG.C_COSTO_PROPORCIONAL) > 0 THEN
+                INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                'El numero de operaciones o servicios es ilimitado (-1), por tanto costo fijo y costo proporcional deben estar en blanco'||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,'NUM_OPER_SERV_CUOTA_MANEJO',REG.C_ID);
+                COMMIT;
+            ELSE
+              --4. 5 Los campos costo_fijo y costo_prop_oper_serv no pueden ser null o ser cero al mismo tiempo, al menos uno de ellos debe contener informacion
+              --6. Los campos costo_fijo y costo_prop_oper_serv no pueden ser null o ser cero al mismo tiempo, al menos uno de ellos debe contener informacion (excepto cuando en el campo num_oper_serv_cuota_manejo se reporta "-1")
+              IF(REG.C_PRODUCTO = 'DEPOSITO' OR REG.C_PRODUCTO = 'TARJETA_CREDITO') THEN
+                 IF (REG.C_COSTO_FIJO IS NULL
+                      AND REG.C_COSTO_PROPORCIONAL IS NULL )
+                      OR (REG.C_COSTO_FIJO = 0
+                      AND REG.C_COSTO_PROPORCIONAL = 0) THEN
+                        IF (REG.C_OBSERVACIONES !=90) THEN
+                          INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                          'Los campos costo_fijo y costo_prop_oper_serv no pueden ser null o ser cero al mismo tiempo, al menos uno de ellos debe contener informacion. '||' Cuenta: '||REG.C_CUENTA||' Subcuenta '||REG.C_SUBCUENTA,'NUM_OPER_SERV_CUOTA_MANEJO',REG.C_ID);
+                          COMMIT;
+                        END IF;
+                  END IF;
+
+              END IF;
+
+            END IF; */
+
+            --7. Si el servicio es gratuito se debe reportar cero (0)
+            /*IF (REG.C_PRODUCTO = 'TARJETA_CREDITO')
+            AND (Length(REG.C_SERVICIO1) > 0
+            OR Length(REG.C_SERVICIO2) > 0
+            OR Length(REG.C_SERVICIO2) > 0) THEN
+              IF REG.C_COSTO_PROPORCIONAL_MAX !=0 THEN
+                INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                'Si el servicio es gratuito se debe reportar cero (0) COSTO_PROPORCIONAL_MAX','COSTO_PROPORCIONAL_MAX',REG.C_ID);
+                COMMIT;
+              END IF;
+            END IF;*/
+
+
+        END LOOP;
+
+        SELECT Count(*)
+        INTO V_FALLA_DEF
+        FROM TB_FALLA_TARIFAS;
+
+        IF (V_FALLA_DEF = 0 ) THEN
+           BEGIN
+                FOR REG_D IN C_DATOS LOOP
+                
+                  registro:= REG_D.C_ID;
+
+                  DBMS_OUTPUT.PUT_LINE('registro '||registro);
+                      BEGIN
+
+                      DBMS_OUTPUT.PUT_LINE('CUENTA: ' || REG_D.C_CUENTA);
+                      DBMS_OUTPUT.PUT_LINE('PRODUCTO: ' || REG_D.C_PRODUCTO);
+                      DBMS_OUTPUT.PUT_LINE('id: ' || REG_D.C_ID);
+                            INSERT INTO INFORMES.TB_TARIFAS_SFC(CUENTA,PRODUCTO,ENTIDAD,TIPO_ENTIDAD,
+                                        FECHA_REPORTE,NOMBRE_ENTIDAD,CODIGO_CREDITO,
+                                        NOMBRE_COMERCIAL,TIPO_PRODUCTO,APERTURA_DIGITAL,
+                                        CARACTERISTICA_CREDITO,NUMERO_CLIENTES,FRANQUICIA,
+                                        CUOTA_MANEJO,GRUPO_POBLACIONAL,OBSERVACIONES_CUOTA_MANEJO,
+                                        CUOTA_MANEJO_MAX,CUPO,INGRESO,
+                                        CUENTA1,CUENTA2,CUENTA3,
+                                        TARJETA1,TARJETA2,TARJETA3,
+                                        SERVICIO1,SERVICIO2,SERVICIO3,SUBCUENTA,
+                                        OPERACION_SERVICIO,CANAL,NUM_OPER_SERV_CUOTA_MANEJO,
+                                        COSTO,COSTO_FIJO,COSTO_FIJO_MAX,
+                                        COSTO_PROPORCIONAL,COSTO_PROPORCIONAL_MAX,TASA,
+                                        TASA_MAX,CODIGO_ASEGURADORA,TIPO_ASEGURADORA,
+                                        OBSERVACIONES,FECHA_CREACION	)
+                            VALUES (REG_D.C_CUENTA,REG_D.C_PRODUCTO, REG_D.C_ENTIDAD, REG_D.C_TIPO_ENTIDAD,
+                                    REG_D.FECHA_REPORTE, REG_D.C_NOMBRE_ENTIDAD, REG_D.COD_CREDITO,
+                                    REG_D.NOM_COMERCIAL, REG_D.C_TIPO_PRODUCTO, REG_D.C_APERTURA_DIG,
+                                    REG_D.C_CARACTERISTICA, REG_D.C_NUM_CLIENTES, REG_D.C_FRANQUICIA,
+                                    REG_D.C_CUOTA_MANEJO, REG_D.C_GRUPO_POBL, REG_D.C_OBSERV_CUOTA,
+                                    REG_D.C_CUOTA_MAX, REG_D.C_CUPO, REG_D.C_INGRESO,
+                                    REG_D.C_CUENTA1, REG_D.C_CUENTA2, REG_D.C_CUENTA3,
+                                    REG_D.C_TARJETA1, REG_D.C_TARJETA2, REG_D.C_TARJETA3,
+                                    REG_D.C_SERVICIO1, REG_D.C_SERVICIO2, REG_D.C_SERVICIO3,REG_D.C_SUBCUENTA,
+                                    REG_D.C_OPERACION, REG_D.C_CANAL, REG_D.C_NUM_OPER_SERV_CUOTA_MANEJO,
+                                    REG_D.C_COSTO, REG_D.C_COSTO_FIJO, REG_D.C_COSTO_FIJO_MAX,
+                                    REG_D.C_COSTO_PROPORCIONAL, REG_D.C_COSTO_PROPORCIONAL_MAX, REG_D.C_TASA,
+                                    REG_D.C_TASA_MAX, REG_D.C_COD_ASEGURA, REG_D.C_TIPO_ASEGURA,
+                                    REG_D.C_OBSERVACIONES, REG_D.C_FECHA_CREACION);
+                            COMMIT;
+                        EXCEPTION
+                          WHEN OTHERS THEN
+                              EMESG := SQLERRM;
+                              ECODE := SQLCODE;
+                            informes.sp_insert_log_tarifas_process ('REGISTRO '||REG_D.C_ID,'SQLCODE:'||SQLCODE||' - SQLERRM:'||SQLERRM);
+                            INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                              'REGISTRO '||REG_D.C_ID||'SQLCODE:'||ECODE||' - SQLERRM:'||EMESG,'FALLA AL INSERTAR EN TABLA TARIFAS_SFC',REG_D.C_ID);
+                              COMMIT;
+                            DBMS_OUTPUT.PUT_LINE('FALLA GENERAL SP_VALIDAR_DATOS_TARIFAS, INSERT TABLA TARIFAS_SFC'||
+                          '- SQLCODE:'||SQLCODE||' - SQLERRM:'||SQLERRM);
+
+                        END;
+                END LOOP;
+            EXCEPTION
+            WHEN OTHERS THEN
+                        EMESG := SQLERRM;
+                        ECODE := SQLCODE;
+                       informes.sp_insert_log_tarifas_process ('REGISTRO '||registro,'SQLCODE:'||SQLCODE||' - SQLERRM:'||SQLERRM);
+                      INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                        'REGISTRO '||registro||'SQLCODE:'||ECODE||' - SQLERRM:'||EMESG,'FALLA AL INSERTAR EN TABLA TARIFAS_SFC',registro);
+                        COMMIT;
+                      DBMS_OUTPUT.PUT_LINE('FALLA GENERAL SP_VALIDAR_DATOS_TARIFAS, INSERT TABLA TARIFAS_SFC'||
+                    '- SQLCODE:'||SQLCODE||' - SQLERRM:'||SQLERRM);
+            END;
+         END IF;
+
+
+
+  END;
+EXCEPTION
+ WHEN OTHERS THEN
+    EMESG := SQLERRM;
+    ECODE := SQLCODE;
+    informes.sp_insert_log_tarifas_process ('REGISTRO '||registro,'SQLCODE:'||SQLCODE||' - SQLERRM:'||SQLERRM);
+                      INSERT INTO INFORMES.TB_FALLA_TARIFAS VALUES (To_Char(SYSDATE,'DD/MM/YYYY'),
+                        'REGISTRO '||registro||'SQLCODE:'||ECODE||' - SQLERRM:'||EMESG,'FALLA AL INSERTAR EN TABLA TARIFAS_SFC',registro);
+                        COMMIT;
+   DBMS_OUTPUT.PUT_LINE('FALLA GENERAL SP_VALIDAR_DATOS_TARIFAS'||
+   '- SQLCODE:'||SQLCODE||' - SQLERRM:'||SQLERRM||' BACKTRACEERROR '||DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+END;
+/
